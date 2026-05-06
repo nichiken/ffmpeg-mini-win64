@@ -56,7 +56,7 @@ jobs:
             --disable-network \
             --disable-autodetect \
             --disable-iconv \
-            --enable-pthreads \
+            --enable-w32threads \
             --enable-zlib \
             --enable-small \
             --enable-protocol=file,pipe \
