@@ -23,6 +23,7 @@ jobs:
             gcc-mingw-w64-x86-64 \
             g++-mingw-w64-x86-64 \
             mingw-w64-tools \
+            libz-mingw-w64-dev \
             nasm yasm make pkg-config zip
 
       - name: Cache ffmpeg source
@@ -60,7 +61,7 @@ jobs:
             --enable-small \
             --enable-protocol=file,pipe \
             --enable-demuxer=mov,matroska,webm_dash_manifest,mp3,wav,flac,aac,ogg,m4a \
-            --enable-muxer=mp4,ipod,mov,matroska,webm,wav,flac,ipod,mp3 \
+            --enable-muxer=mp4,ipod,mov,matroska,webm,wav,flac,mp3 \
             --enable-parser=h264,hevc,vp9,aac,aac_latm,mpegaudio,flac,opus,vorbis \
             --enable-decoder=h264,hevc,vp9,aac,aac_latm,mp3,mp3float,flac,opus,vorbis,alac,pcm_s16le,pcm_s24le,pcm_s32le,pcm_f32le,pcm_f64le \
             --enable-encoder=alac,aac,flac,pcm_s16le,pcm_s24le \
