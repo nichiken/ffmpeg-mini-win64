@@ -1,0 +1,116 @@
+name: Build ffmpeg-mini for Windows x64
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc-mingw-w64-x86-64 \
+            g++-mingw-w64-x86-64 \
+            mingw-w64-tools \
+            nasm yasm make pkg-config zip
+
+      - name: Cache ffmpeg source
+        id: cache-ffmpeg
+        uses: actions/cache@v4
+        with:
+          path: ffmpeg-src
+          key: ffmpeg-src-release-7.1
+
+      - name: Clone ffmpeg
+        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 -b release/7.1 https://git.ffmpeg.org/ffmpeg.git ffmpeg-src
+
+      - name: Configure
+        working-directory: ffmpeg-src
+        run: |
+          ./configure \
+            --prefix="${GITHUB_WORKSPACE}/out" \
+            --target-os=mingw32 \
+            --arch=x86_64 \
+            --cross-prefix=x86_64-w64-mingw32- \
+            --pkg-config=pkg-config \
+            --enable-cross-compile \
+            --enable-static \
+            --disable-shared \
+            --disable-everything \
+            --disable-doc \
+            --disable-debug \
+            --disable-network \
+            --disable-autodetect \
+            --disable-iconv \
+            --enable-pthreads \
+            --enable-zlib \
+            --enable-small \
+            --enable-protocol=file,pipe \
+            --enable-demuxer=mov,matroska,webm_dash_manifest,mp3,wav,flac,aac,ogg,m4a \
+            --enable-muxer=mp4,ipod,mov,matroska,webm,wav,flac,ipod,mp3 \
+            --enable-parser=h264,hevc,vp9,aac,aac_latm,mpegaudio,flac,opus,vorbis \
+            --enable-decoder=h264,hevc,vp9,aac,aac_latm,mp3,mp3float,flac,opus,vorbis,alac,pcm_s16le,pcm_s24le,pcm_s32le,pcm_f32le,pcm_f64le \
+            --enable-encoder=alac,aac,flac,pcm_s16le,pcm_s24le \
+            --enable-bsf=h264_mp4toannexb,hevc_mp4toannexb,aac_adtstoasc,vp9_superframe,extract_extradata \
+            --enable-filter=null,anull,aresample,aformat,acopy,copy \
+            --extra-cflags="-Os -ffunction-sections -fdata-sections" \
+            --extra-ldflags="-Wl,--gc-sections,--strip-all"
+
+      - name: Build
+        working-directory: ffmpeg-src
+        run: make -j$(nproc)
+
+      - name: Strip & collect
+        run: |
+          mkdir -p dist
+          cp ffmpeg-src/ffmpeg.exe ffmpeg-src/ffprobe.exe dist/
+          x86_64-w64-mingw32-strip --strip-all dist/ffmpeg.exe dist/ffprobe.exe
+          ls -lh dist/
+
+      - name: Show ffmpeg banner (sanity)
+        run: |
+          echo "--- file info ---"
+          file dist/ffmpeg.exe dist/ffprobe.exe
+          echo "--- sizes ---"
+          du -h dist/*.exe
+
+      - name: Package zip
+        run: |
+          cp ffmpeg-src/COPYING.LGPLv2.1 dist/LICENSE.LGPL.txt || true
+          cp ffmpeg-src/README.md dist/FFMPEG-README.md || true
+          cd dist
+          zip -9 ../ffmpeg-mini-win64.zip ffmpeg.exe ffprobe.exe LICENSE.LGPL.txt FFMPEG-README.md 2>/dev/null || zip -9 ../ffmpeg-mini-win64.zip ffmpeg.exe ffprobe.exe
+          cd ..
+          ls -lh ffmpeg-mini-win64.zip
+          sha256sum ffmpeg-mini-win64.zip > ffmpeg-mini-win64.zip.sha256
+          cat ffmpeg-mini-win64.zip.sha256
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-mini-win64
+          path: |
+            ffmpeg-mini-win64.zip
+            ffmpeg-mini-win64.zip.sha256
+
+      - name: Create release on tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ffmpeg-mini-win64.zip
+            ffmpeg-mini-win64.zip.sha256
+          generate_release_notes: true
