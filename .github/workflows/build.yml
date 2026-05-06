@@ -68,7 +68,7 @@ jobs:
             --enable-bsf=h264_mp4toannexb,hevc_mp4toannexb,aac_adtstoasc,vp9_superframe,extract_extradata \
             --enable-filter=null,anull,aresample,aformat,acopy,copy \
             --extra-cflags="-Os -ffunction-sections -fdata-sections" \
-            --extra-ldflags="-Wl,--gc-sections,--strip-all"
+            --extra-ldflags="-static -static-libgcc -Wl,--gc-sections,--strip-all"
 
       - name: Build
         working-directory: ffmpeg-src
@@ -87,6 +87,17 @@ jobs:
           file dist/ffmpeg.exe dist/ffprobe.exe
           echo "--- sizes ---"
           du -h dist/*.exe
+          echo "--- DLL dependencies (must only contain Windows system DLLs) ---"
+          for f in dist/ffmpeg.exe dist/ffprobe.exe; do
+            echo "=== $f ==="
+            grep -aoE '[a-zA-Z_0-9-]+\.dll' "$f" | sort -u
+          done
+          echo "--- Forbidden DLL check ---"
+          if grep -aoE '[a-zA-Z_0-9-]+\.dll' dist/ffmpeg.exe dist/ffprobe.exe | sort -u | grep -ivE '^(kernel32|shell32|bcrypt|msvcrt|advapi32|user32|gdi32|ws2_32|ole32|oleaut32|psapi|secur32|iphlpapi|crypt32|dwmapi|powrprof|setupapi|version|wininet|winmm|cfgmgr32|netapi32|ntdll|userenv|uxtheme|wsock32|imm32|imagehlp|d3d9|d3d11|dxgi|mfplat|mf|mfreadwrite|avrt)\.dll$'; then
+            echo "ERROR: non-system DLL dependency detected!"
+            exit 1
+          fi
+          echo "OK: only system DLLs used"
 
       - name: Package zip
         run: |
