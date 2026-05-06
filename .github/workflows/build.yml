@@ -93,8 +93,13 @@ jobs:
             grep -aoE '[a-zA-Z_0-9-]+\.dll' "$f" | sort -u
           done
           echo "--- Forbidden DLL check ---"
-          if grep -aoE '[a-zA-Z_0-9-]+\.dll' dist/ffmpeg.exe dist/ffprobe.exe | sort -u | grep -ivE '^(kernel32|shell32|bcrypt|msvcrt|advapi32|user32|gdi32|ws2_32|ole32|oleaut32|psapi|secur32|iphlpapi|crypt32|dwmapi|powrprof|setupapi|version|wininet|winmm|cfgmgr32|netapi32|ntdll|userenv|uxtheme|wsock32|imm32|imagehlp|d3d9|d3d11|dxgi|mfplat|mf|mfreadwrite|avrt)\.dll$'; then
-            echo "ERROR: non-system DLL dependency detected!"
+          # -h でファイル名プレフィックスを抑止
+          BAD=$(grep -ahoE '[a-zA-Z_0-9-]+\.dll' dist/ffmpeg.exe dist/ffprobe.exe \
+            | sort -u \
+            | grep -ivE '^(kernel32|shell32|bcrypt|msvcrt|advapi32|user32|gdi32|ws2_32|ole32|oleaut32|psapi|secur32|iphlpapi|crypt32|dwmapi|powrprof|setupapi|version|wininet|winmm|cfgmgr32|netapi32|ntdll|userenv|uxtheme|wsock32|imm32|imagehlp|d3d9|d3d11|dxgi|mfplat|mf|mfreadwrite|avrt)\.dll$' || true)
+          if [ -n "$BAD" ]; then
+            echo "ERROR: non-system DLL dependency detected:"
+            echo "$BAD"
             exit 1
           fi
           echo "OK: only system DLLs used"
